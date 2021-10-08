@@ -17,20 +17,24 @@ import argparse
 import os
 import sys
 import networkx as nx
-import matplotlib
+import matplotlib 
+import matplotlib.pyplot as plt
 from operator import itemgetter
 import random
 random.seed(9001)
 from random import randint
 import statistics
 
-__author__ = "Your Name"
+import itertools as it
+from collections import Counter
+
+__author__ = "Florian TEP"
 __copyright__ = "Universite Paris Diderot"
-__credits__ = ["Your Name"]
+__credits__ = ["Florian TEP"]
 __license__ = "GPL"
 __version__ = "1.0.0"
-__maintainer__ = "Your Name"
-__email__ = "your@email.fr"
+__maintainer__ = "Florian TEP"
+__email__ = "tepflorian@gmail.com"
 __status__ = "Developpement"
 
 def isfile(path):
@@ -68,20 +72,47 @@ def get_arguments():
 
 
 def read_fastq(fastq_file):
-    pass
+    content = []
+    with open (fastq_file, "r") as file:
+        for line in file : 
+            new_content = line.strip()
+            content.append(new_content)
+    for i in range(1,(len(content)),4): 
+        yield content[i]
+    
+   
+            
 
 
 def cut_kmer(read, kmer_size):
-    pass
+    for i in range (0,len(read)) :
+        if len(read)-i >= kmer_size-1 : 
+            yield read[i:i+kmer_size]
 
-
+    
 def build_kmer_dict(fastq_file, kmer_size):
-    pass
+    kmers_list =[]
+    sequence = read_fastq(fastq_file)
+    for i in it.chain(sequence):
+        kmers=cut_kmer(i, kmer_size)
+        for kmer in it.chain(kmers):
+            if len(kmer) == kmer_size : #liste le kmer que si sa longueur est égale au kmer_size
+                kmers_list.append(kmer)
+    #print (kmers_list)
 
+    counter = Counter(kmers_list)
+   
+    return dict(counter)
 
 def build_graph(kmer_dict):
-    pass
-
+    G = nx.DiGraph()
+    for item in kmer_dict.items() :
+        kmer = item[0]
+        weight = item[1]
+        prefixe = kmer[:-1]
+        suffixe = kmer[1:]
+        G.add_edge(prefixe, suffixe, weight=weight)
+    return (G)
 
 def remove_paths(graph, path_list, delete_entry_node, delete_sink_node):
     pass
@@ -141,16 +172,16 @@ def draw_graph(graph, graphimg_file):
     nx.draw_networkx_edges(graph, pos, edgelist=elarge, width=6)
     nx.draw_networkx_edges(graph, pos, edgelist=esmall, width=6, alpha=0.5, 
                            edge_color='b', style='dashed')
-    #nx.draw_networkx(graph, pos, node_size=10, with_labels=False)
+    nx.draw_networkx(graph, pos, node_size=10, with_labels=False)
     # save image
     plt.savefig(graphimg_file)
 
 
-def save_graph(graph, graph_file):
+#def save_graph(graph, graph_file):
     """Save the graph with pickle
     """
-    with open(graph_file, "wt") as save:
-            pickle.dump(graph, save)
+    #with open(graph_file, "wt") as save:
+            #pickle.dump(graph, save)
 
 
 #==============================================================
@@ -162,6 +193,19 @@ def main():
     """
     # Get arguments
     args = get_arguments()
+
+    #sequences = list(read_fastq(args.fastq_file))
+    sequences = list(read_fastq(args.fastq_file))
+    for i in sequences :
+        print (i)
+
+    dict = build_kmer_dict(args.fastq_file,args.kmer_size)
+    print (dict)
+
+    graph = build_graph(dict)
+    draw_graph(graph, "G.pdf") 
+
+    #G.add_nodes_from(dict)
 
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit 
@@ -176,3 +220,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
