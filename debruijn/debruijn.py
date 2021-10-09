@@ -21,6 +21,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from operator import itemgetter
 import random
+
+from networkx.algorithms.shortest_paths.unweighted import predecessor
 random.seed(9001)
 from random import randint
 import statistics
@@ -79,10 +81,6 @@ def read_fastq(fastq_file):
             content.append(new_content)
     for i in range(1,(len(content)),4): 
         yield content[i]
-    
-   
-            
-
 
 def cut_kmer(read, kmer_size):
     for i in range (0,len(read)) :
@@ -96,7 +94,7 @@ def build_kmer_dict(fastq_file, kmer_size):
     for i in it.chain(sequence):
         kmers=cut_kmer(i, kmer_size)
         for kmer in it.chain(kmers):
-            if len(kmer) == kmer_size : #liste le kmer que si sa longueur est égale au kmer_size
+            if len(kmer) == kmer_size : 
                 kmers_list.append(kmer)
     #print (kmers_list)
 
@@ -141,16 +139,52 @@ def solve_out_tips(graph, ending_nodes):
     pass
 
 def get_starting_nodes(graph):
-    pass
+    starting_nodes = []
+    for node in graph :
+        predecessors = list(graph.predecessors(node))
+        if len(predecessors)==0:
+            starting_nodes.append(node)
+    return starting_nodes
 
 def get_sink_nodes(graph):
-    pass
+    sink_nodes = []
+    for node in graph :
+        successors = list(graph.successors(node))
+        if len(successors)==0:
+            sink_nodes.append(node)
+    return sink_nodes
 
 def get_contigs(graph, starting_nodes, ending_nodes):
-    pass
+    contigs=()
+
+    for source in starting_nodes : 
+        for end in ending_nodes : 
+            if nx.has_path (graph, source,end) == True : #S'il y existe un chemin entre source et end dans le graphe
+                paths = list(nx.all_simple_paths(graph, source,end))
+
+                for path in it.chain(paths): #Pour chaque chemin possible
+                    contig = source
+                    path_length = len(source)+(len(path)-1) #longueur du contig = taille 1er kmer(source) + 1 nt par noeud supplémentaire
+                    
+                    for i in range (1,len(path)) : #Pour chaque noeud du chemin
+                        nucleotide = path[i][-1] 
+                        contig = contig + nucleotide #chaque noeud du chemin donne le nt suivant (= le dernier nt du noeud)
+
+                    contigs = contigs + ((contig,path_length),)
+    return (contigs)
+
 
 def save_contigs(contigs_list, output_file):
-    pass
+    output =  open (output_file, "w")
+    id=0
+    for contig in contigs_list :
+        output.write(">contig_{} len={}".format(id,contig[1]) + '\n') #contig[1] = longueur du contig dans le tuple
+        output.write(fill(contig[0]) + '\n')
+        id += 1
+    output.close()
+
+        
+    #pass
 
 
 def fill(text, width=80):
@@ -172,7 +206,7 @@ def draw_graph(graph, graphimg_file):
     nx.draw_networkx_edges(graph, pos, edgelist=elarge, width=6)
     nx.draw_networkx_edges(graph, pos, edgelist=esmall, width=6, alpha=0.5, 
                            edge_color='b', style='dashed')
-    nx.draw_networkx(graph, pos, node_size=10, with_labels=False)
+    #nx.draw_networkx(graph, pos, node_size=10, with_labels=False)
     # save image
     plt.savefig(graphimg_file)
 
@@ -194,19 +228,28 @@ def main():
     # Get arguments
     args = get_arguments()
 
-    #sequences = list(read_fastq(args.fastq_file))
     sequences = list(read_fastq(args.fastq_file))
-    for i in sequences :
-        print (i)
+    #for i in sequences :
+        #print (i)
 
     dict = build_kmer_dict(args.fastq_file,args.kmer_size)
-    print (dict)
+    #print (dict)
 
     graph = build_graph(dict)
-    draw_graph(graph, "G.pdf") 
 
-    #G.add_nodes_from(dict)
 
+    draw_graph(graph, "G100.pdf") 
+    starting_nodes = get_starting_nodes(graph)
+    print (starting_nodes)
+
+    sink_nodes = get_sink_nodes(graph)
+    print (sink_nodes)
+
+    contigs_list = get_contigs(graph, starting_nodes, sink_nodes)
+    #print (contigs_list)
+        
+    save_contigs(contigs_list, args.output_file)
+    
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit 
     # graphe
